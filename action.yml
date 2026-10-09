@@ -1,0 +1,69 @@
+name: 'Amazon Scraper & Price Monitor'
+description: 'Extract real-time Amazon pricing, BuyBox winner, stock status, and variations directly in your CI/CD pipelines.'
+author: 'Chaldia Labs'
+branding:
+  icon: 'shopping-cart'
+  color: 'orange'
+
+inputs:
+  asin:
+    description: 'Amazon Standard Identification Number (ASIN)'
+    required: true
+  domain:
+    description: 'Amazon marketplace domain extension (e.g. com, com.tr, de, co.uk)'
+    required: false
+    default: 'com'
+  api_key:
+    description: 'Chaldia Labs API Key'
+    required: false
+
+outputs:
+  title:
+    description: 'Product Title'
+    value: ${{ steps.scrape.outputs.title }}
+  price:
+    description: 'Product Price'
+    value: ${{ steps.scrape.outputs.price }}
+  currency:
+    description: 'Price Currency'
+    value: ${{ steps.scrape.outputs.currency }}
+  in_stock:
+    description: 'Inventory in-stock status (true/false)'
+    value: ${{ steps.scrape.outputs.in_stock }}
+  raw_json:
+    description: 'Full JSON payload returned from API'
+    value: ${{ steps.scrape.outputs.raw_json }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Fetch Amazon Data
+      id: scrape
+      shell: bash
+      run: |
+        AUTH_HEADER=""
+        if [ -n "${{ inputs.api_key }}" ]; then
+          AUTH_HEADER="Authorization: Bearer ${{ inputs.api_key }}"
+        fi
+
+        RESPONSE=$(curl -s -X GET "https://api.chaldialabs.com/api/v1/product?asin=${{ inputs.asin }}&domain=${{ inputs.domain }}" \
+          -H "Content-Type: application/json" \
+          -H "$AUTH_HEADER")
+
+        # Parse basic fields via node/python
+        node -e '
+          const data = JSON.parse(process.argv[1]);
+          const fs = require("fs");
+          const out = process.env.GITHUB_OUTPUT;
+          if (data && data.data) {
+            fs.appendFileSync(out, `title=${data.data.title || ""}\n`);
+            fs.appendFileSync(out, `price=${data.data.pricing?.price || ""}\n`);
+            fs.appendFileSync(out, `currency=${data.data.pricing?.currency || ""}\n`);
+            fs.appendFileSync(out, `in_stock=${data.data.inventory?.in_stock || false}\n`);
+          }
+        ' "$RESPONSE"
+
+        # Export full payload to output
+        echo "raw_json<<EOF" >> $GITHUB_OUTPUT
+        echo "$RESPONSE" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
