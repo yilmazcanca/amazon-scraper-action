@@ -63,8 +63,8 @@ jobs:
 
 ## Get an API Key
 
-Get your free API key at [Chaldia Labs](https://chaldialabs.com).
+Get your free API key at [Chaldia Labs](https://chaldia-labs.vercel.app/).
 
 ## License
 
-MIT © [Chaldia Labs](https://chaldialabs.com)
+MIT © [Chaldia Labs](https://chaldia-labs.vercel.app/)
